@@ -26,7 +26,7 @@
 //   We MUST attach setup/draw (and input callbacks) to window.
 //
 // Notes:
-// - Browsers block audio autoplay. We unlock audio on the first click/key press.
+// - Browsers block audio autoplay. We unlock it on the first click/key press.
 //
 // Dependencies (loaded in index.html before this file):
 // - p5.js
@@ -108,9 +108,40 @@ const TUNING_URL = new URL("./data/tuning.json", window.location.href).href;
 // This must match a level id in levels.json
 const START_LEVEL_ID = "ex5_level1";
 
+// Cached loader for level transitions (reuses fetched doc)
+let cachedLoader = null;
+
+// Keep the resize listener single-owned while still letting each level
+// re-apply the original integer-scaled canvas sizing.
+let resizeHandlerInstalled = false;
+
 // Boot flags
 let bootStarted = false;
 let bootDone = false;
+
+function applyRuntimeViewConfig(viewW, viewH, { installResize = false } = {}) {
+  // Keep the main canvas locked to the level's intended resolution.
+  resizeCanvas(viewW, viewH);
+
+  // Pixel art: never smooth, never retina-scale the main canvas.
+  pixelDensity(1);
+  noSmooth();
+  drawingContext.imageSmoothingEnabled = false;
+
+  // Keep timing stable (p5play anims feel best when p5 is targeting 60).
+  frameRate(60);
+
+  // Match the original integer-scaled presentation after boot and transitions.
+  applyIntegerScale(viewW, viewH);
+  if (installResize && !resizeHandlerInstalled) {
+    installResizeHandler(viewW, viewH);
+    resizeHandlerInstalled = true;
+  }
+
+  // Sprite rendering + physics stepping must match the original runtime path.
+  allSprites.pixelPerfect = true;
+  world.autoStep = false;
+}
 
 // ------------------------------------------------------------
 // Boot pipeline (async) — runs from setup()
@@ -122,8 +153,8 @@ async function boot() {
   // --- Data ---
   tuningDoc = await loadJSONAsync(TUNING_URL);
 
-  const loader = new LevelLoader(tuningDoc);
-  levelPkg = await loader.load(LEVELS_URL, START_LEVEL_ID);
+  cachedLoader = new LevelLoader(tuningDoc);
+  levelPkg = await cachedLoader.load(LEVELS_URL, START_LEVEL_ID);
 
   // --- Assets (images/animations/etc.) ---
   assets = await loadAssets(levelPkg, tuningDoc);
@@ -161,41 +192,64 @@ async function boot() {
 }
 
 // ------------------------------------------------------------
+// Week 9: Level transition (async) — rebuilds world for new level
+// ------------------------------------------------------------
+
+async function transitionToLevel(levelId) {
+  console.log(`TRANSITION: loading level "${levelId}"`);
+
+  // Pause draw loop during rebuild
+  noLoop();
+
+  // Remove all existing sprites (iterate snapshot to avoid mutation issues)
+  for (const s of [...allSprites]) {
+    s.remove();
+  }
+
+  // Load the new level package using the cached loader
+  if (!cachedLoader) {
+    cachedLoader = new LevelLoader(tuningDoc);
+  }
+  levelPkg = await cachedLoader.load(LEVELS_URL, levelId);
+
+  // Re-preload assets for the new level (reuses cached images where possible)
+  assets = await loadAssets(levelPkg, tuningDoc);
+
+  // Reload parallax layers
+  const defs = levelPkg.level?.view?.parallax ?? [];
+  parallaxLayers = defs
+    .map((d) => ({
+      img: loadImage(d.img),
+      factor: Number(d.speed ?? 0),
+    }))
+    .filter((l) => l.img);
+
+  // Stop old music so the new level starts fresh
+  soundManager?.stopMusic();
+
+  // Reuse the same runtime init path as boot — guarantees identical setup
+  initRuntime();
+
+  console.log(`TRANSITION: level "${levelId}" ready`);
+}
+
+// ------------------------------------------------------------
 // Runtime init (sync) — called after boot() finishes
 // ------------------------------------------------------------
 
 function initRuntime() {
   const { viewW, viewH } = levelPkg.view;
 
-  // Resize the tiny placeholder canvas created in setup().
-  resizeCanvas(viewW, viewH);
-
-  // Pixel art: never smooth, never retina-scale the main canvas.
-  pixelDensity(1);
-  noSmooth();
-  drawingContext.imageSmoothingEnabled = false;
-
-  // Keep timing stable (p5play anims feel best when p5 is targeting 60).
-  frameRate(60);
-
-  // Pixel-perfect scaling to fill the browser window by integer multiples.
-  applyIntegerScale(viewW, viewH);
-  installResizeHandler(viewW, viewH);
-
-  // Sprite rendering
-  allSprites.pixelPerfect = true;
-
-  // Physics: manual step for stable pixel rendering
-  world.autoStep = false;
+  applyRuntimeViewConfig(viewW, viewH, { installResize: true });
 
   // HUD buffer (screen-space)
   hudGfx = createGraphics(viewW, viewH);
   hudGfx.noSmooth();
   hudGfx.pixelDensity(1);
 
-  // Systems
-  inputManager = new InputManager();
-  debugOverlay = new DebugOverlay();
+  // Systems — only create on first boot; reuse across level transitions
+  if (!inputManager) inputManager = new InputManager();
+  if (!debugOverlay) debugOverlay = new DebugOverlay();
 
   // WORLD
   game = new Game(levelPkg, assets, {
@@ -205,6 +259,16 @@ function initRuntime() {
     debugOverlay,
   });
   game.build();
+
+  // Re-apply debug gravity if it was toggled on before this level loaded
+  if (debugOverlay?.moonGravity) {
+    game._applyGravity();
+  }
+
+  // Week 9: wire level advancement callback
+  game._onLevelAdvance = async (nextLevelId) => {
+    await transitionToLevel(nextLevelId);
+  };
 
   // UI overlays
   winScreen = new WinScreen(levelPkg, assets);
@@ -218,7 +282,8 @@ function initRuntime() {
   cameraController.setTarget(game.level.playerCtrl.sprite);
   cameraController.reset();
 
-  // IMPORTANT: subscribe ONCE (not in draw)
+  // IMPORTANT: subscribe ONCE per Game instance (not in draw).
+  // Each new Game has a fresh EventBus, so these don't stack across transitions.
   game.events.on("level:restarted", () => {
     cameraController?.reset();
     particles?.clear();
@@ -346,7 +411,7 @@ function draw() {
 
   // These overlay draw calls already guard camera.off/on internally,
   // but we keep them outside of any camera.off scope here.
-  if (won) winScreen?.draw({ elapsedMs, game });
+  if (won) winScreen?.draw({ elapsedMs, game, hasNextLevel: game?._hasNextLevel?.() ?? false });
   if (dead) loseScreen?.draw({ elapsedMs, game });
 }
 
@@ -383,3 +448,4 @@ window.setup = setup;
 window.draw = draw;
 window.mousePressed = mousePressed;
 window.keyPressed = keyPressed;
+

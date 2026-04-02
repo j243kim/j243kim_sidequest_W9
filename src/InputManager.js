@@ -22,6 +22,10 @@ export class InputManager {
       attack: false,
       restart: false,
       debugToggle: false,
+      moonGravity: false,
+      invincible: false,
+      slowMotion: false,
+      nextLevel: false,
     };
 
     // canonical snapshot (same object reused every frame)
@@ -35,6 +39,12 @@ export class InputManager {
       attackPressed: false,
       restartPressed: false,
       debugTogglePressed: false,
+
+      // Week 9 debug keys (edge-triggered)
+      moonGravityPressed: false,
+      invinciblePressed: false,
+      slowMotionPressed: false,
+      nextLevelPressed: false,
     };
   }
 
@@ -66,6 +76,12 @@ export class InputManager {
     const restartDown = kb.pressing("r");
     const debugToggleDown = kb.pressing("t");
 
+    // Week 9 debug keys
+    const moonGravityDown = kb.pressing("g");
+    const invincibleDown = kb.pressing("i");
+    const slowMotionDown = kb.pressing("m");
+    const nextLevelDown = kb.pressing("n");
+
     // -----------------------
     // Write snapshot
     // -----------------------
@@ -77,6 +93,11 @@ export class InputManager {
     this._input.restartPressed = restartDown && !this._prevDown.restart;
     this._input.debugTogglePressed = debugToggleDown && !this._prevDown.debugToggle;
 
+    this._input.moonGravityPressed = moonGravityDown && !this._prevDown.moonGravity;
+    this._input.invinciblePressed = invincibleDown && !this._prevDown.invincible;
+    this._input.slowMotionPressed = slowMotionDown && !this._prevDown.slowMotion;
+    this._input.nextLevelPressed = nextLevelDown && !this._prevDown.nextLevel;
+
     // -----------------------
     // Store prev DOWN states
     // -----------------------
@@ -84,6 +105,10 @@ export class InputManager {
     this._prevDown.attack = attackDown;
     this._prevDown.restart = restartDown;
     this._prevDown.debugToggle = debugToggleDown;
+    this._prevDown.moonGravity = moonGravityDown;
+    this._prevDown.invincible = invincibleDown;
+    this._prevDown.slowMotion = slowMotionDown;
+    this._prevDown.nextLevel = nextLevelDown;
 
     return this._input;
   }

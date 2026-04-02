@@ -25,9 +25,17 @@ export class PlayerController {
     this.player?.reset();
   }
 
-  update({ input, solids, bounds, won }) {
+  update({ input, solids, bounds, won, invincible = false }) {
     const p = this.player;
     if (!p?.sprite) return;
+
+    // Week 9: invincibility debug flag — auto-heal and prevent death
+    if (invincible && p.health < p.maxHealth) {
+      p.health = p.maxHealth;
+      p.pendingDeath = false;
+      p.invulnTimer = 0;
+      p.knockTimer = 0;
+    }
 
     // timers tick every frame regardless
     p.tickTimers();
@@ -38,7 +46,7 @@ export class PlayerController {
     // DEATH LATCH (fixes "never reaches lose screen")
     // -----------------------
     // Latch death after landing. (Do NOT require knockTimer==0; that can prevent latching.)
-    if (!p.dead && p.pendingDeath && grounded) {
+    if (!invincible && !p.dead && p.pendingDeath && grounded) {
       p.dead = true;
       p.pendingDeath = false;
       this.events?.emit("player:died", { health: p.health, maxHealth: p.maxHealth });

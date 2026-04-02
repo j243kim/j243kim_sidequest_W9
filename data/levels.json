@@ -55,6 +55,61 @@
           "winScoreLabel": "RESCUED %d/%d"
         }
       }
+    },
+    {
+      "id": "ex5_level2",
+      "name": "The Deep Woods",
+
+      "tiles": {
+        "tileW": 24,
+        "tileH": 24,
+        "frameW": 32,
+        "frameH": 32
+      },
+
+      "tilemap": [
+        "                       g  b  g  x         ",
+        "            b  x      LggggggggR           ",
+        "      x    LggR                     x      ",
+        "     LR           f   x   b      x LR      ",
+        "  f      b   x   LR  LgggR     LggR        ",
+        "  LggR  LgR LgR           x  b      f      ",
+        "               x   b  f  LgggggR   LgR     ",
+        "     f x    b LgR  LggR              x     ",
+        "    LggR   LgR              b  x  f        ",
+        "                x  f   LR  LgggggR LgR     ",
+        "          x  b  LggR x  gf   x    ff   b   ",
+        "LgggRffggggggggggg]fffLgggfLggggggggggggggg",
+        "ddddddddddddddddddddddddddddddddddddddddddd"
+      ],
+
+      "rules": {},
+
+      "winScore": 12,
+      "gravity": 10,
+      "fallResetMarginTiles": 3,
+
+      "playerStart": { "x": 32, "y": 216 },
+
+      "view": {
+        "w": 240,
+        "h": 192,
+        "background": [69, 61, 79],
+        "cameraLerp": 0.1,
+
+        "parallax": [
+          { "img": "assets/background_layer_1.png", "speed": 0.2 },
+          { "img": "assets/background_layer_2.png", "speed": 0.4 },
+          { "img": "assets/background_layer_3.png", "speed": 0.6 }
+        ]
+      },
+
+      "overrides": {
+        "hud": {
+          "rescueLabel": "RESCUED",
+          "winScoreLabel": "RESCUED %d/%d"
+        }
+      }
     }
   ]
 }

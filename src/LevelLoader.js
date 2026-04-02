@@ -89,10 +89,13 @@ export class LevelLoader {
     const viewH = tileH * viewTilesH;
 
     // --- Tilemap ---
-    const tilemap = Array.isArray(level.tilemap) ? level.tilemap : [];
-    if (tilemap.length === 0) throw new Error(`Level "${level.id}" missing "tilemap" array`);
+    const tilemapRaw = Array.isArray(level.tilemap) ? level.tilemap : [];
+    if (tilemapRaw.length === 0) throw new Error(`Level "${level.id}" missing "tilemap" array`);
 
-    const cols = tilemap[0].length;
+    // Normalize rows before computing bounds so wider later rows don't shrink
+    // the camera clamp/world size just because the first row is shorter.
+    const cols = tilemapRaw.reduce((max, row) => Math.max(max, String(row ?? "").length), 0);
+    const tilemap = tilemapRaw.map((row) => String(row ?? "").padEnd(cols, " "));
     const rows = tilemap.length;
 
     const levelW = cols * tileW;

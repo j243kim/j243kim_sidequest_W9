@@ -64,10 +64,23 @@ export class Game {
     // internal guard so we submit highscores ONCE per win
     this._submittedWin = false;
 
+    // Week 9: multi-level support
+    this._levelIds = [];
+    this._currentLevelIndex = 0;
+    this._onLevelAdvance = null; // callback set by main.js for level transitions
+
     this._unsubs = [];
   }
 
   build() {
+    // Cache all level ids from the document for multi-level support
+    const doc = this.pkg?.doc;
+    if (doc?.levels && Array.isArray(doc.levels)) {
+      this._levelIds = doc.levels.map((l) => l.id);
+      const curId = this.pkg?.level?.id ?? "";
+      this._currentLevelIndex = Math.max(0, this._levelIds.indexOf(curId));
+    }
+
     this.level = new Level(this.pkg, this.assets, { hudGfx: this.hudGfx, events: this.events });
     this.level.build();
 
@@ -206,9 +219,27 @@ export class Game {
       this.debug.toggle();
     }
 
+    // Week 9: debug toggle keys (only when debug overlay exists)
+    if (this.debug) {
+      if (inputSnap?.moonGravityPressed) {
+        this.debug.toggleMoonGravity();
+        this._applyGravity();
+      }
+      if (inputSnap?.invinciblePressed) {
+        this.debug.toggleInvincible();
+      }
+      if (inputSnap?.slowMotionPressed) {
+        this.debug.toggleSlowMotion();
+      }
+    }
+
     // Always advance WORLD (keeps physics + animation normal).
     // Level should stop its internal timer when won/dead.
-    this.level.update({ input: inputSnap });
+    // Pass debug flags so Level can respect invincibility etc.
+    const debugFlags = this.debug
+      ? { invincible: this.debug.invincible, slowMotion: this.debug.slowMotion }
+      : {};
+    this.level.update({ input: inputSnap, debugFlags });
 
     // Mirror timer + win state for VIEW convenience
     // - If won/lost, keep elapsedMs frozen at the last value we latched.
@@ -252,6 +283,12 @@ export class Game {
       if (inputSnap?.debugTogglePressed) {
         this._commitNameEntry();
       }
+    }
+
+    // Next level (N key) — only from win state when there IS a next level
+    if (inputSnap?.nextLevelPressed && this.won && this._hasNextLevel()) {
+      this.advanceLevel();
+      return;
     }
 
     // Restart only allowed from terminal states (win/lose)
@@ -310,5 +347,37 @@ export class Game {
 
     // refresh leaderboard snapshot
     this.topScores = this.highScores.getTop?.(5) ?? this.topScores;
+  }
+
+  // -----------------------
+  // Week 9: Debug gravity toggle
+  // -----------------------
+  _applyGravity() {
+    const baseGravity = Number(this.pkg?.world?.gravity ?? this.pkg?.level?.gravity ?? 10);
+    const useMoon = this.debug?.moonGravity === true;
+    world.gravity.y = useMoon ? baseGravity * 0.3 : baseGravity;
+  }
+
+  // -----------------------
+  // Week 9: Multi-level helpers
+  // -----------------------
+  _hasNextLevel() {
+    return this._currentLevelIndex < this._levelIds.length - 1;
+  }
+
+  getNextLevelId() {
+    if (!this._hasNextLevel()) return null;
+    return this._levelIds[this._currentLevelIndex + 1];
+  }
+
+  advanceLevel() {
+    const nextId = this.getNextLevelId();
+    if (!nextId) return;
+    this._currentLevelIndex++;
+
+    // Notify main.js to rebuild with the new level
+    if (typeof this._onLevelAdvance === "function") {
+      this._onLevelAdvance(nextId);
+    }
   }
 }

@@ -1,16 +1,20 @@
-# Fox Rescue - Side Quest Week 6
+# Fox Rescue - Side Quest Week 9
 
 ## Group Members
 - Jimin Kim, j243kim, 21062367
 
 ## Description
-Fox Rescue is a pixel-art platformer where you play as a fox rescuing leaves scattered across a dangerous forest filled with boars and fire hazards. This Week 6 build refines the previous sketch by adding **sound** and **simple physics-driven visual effects** inspired by *Papers, Please* — where every player action receives clear, reactive feedback.
+Fox Rescue is a pixel-art platformer where you play as a fox rescuing leaves scattered across a dangerous forest filled with boars and fire hazards. This Week 9 build adds a **full debug screen** with toggleable gameplay modifiers and playtest stat tracking, built on top of the Week 6 platformer with sound and physics feedback.
 
-**Week 6 additions (sound + physics combined for bonus):**
-- **Sound effects** triggered by gameplay actions: jump, leaf collection, taking damage, and hitting boars. Background music loops during play.
-- **Screen shake** on player damage and boar hits — the camera shakes with decaying intensity tied to the physics knockback already present in the game.
-- **Particle effects** on leaf collection (green/gold sparkles), boar hits (red impact burst), and player damage (red damage burst). These are purely visual and reinforce the physics interactions.
-- **Combined multi-sensory feedback**: hitting a boar triggers knockback physics + hit sound + impact particles + camera shake simultaneously, creating one connected reactive moment.
+**Week 9 additions (debug screen + bonus level):**
+- **Debug screen** (press T to open/close) with three toggleable features:
+  - **Moon gravity** (G key): Reduces gravity to 30% of normal, allowing floaty jumps for testing level layouts and reaching hard-to-access areas.
+  - **Invincibility** (I key): Prevents all player damage and death, useful for exploring levels and testing mechanics without penalty.
+  - **Slow motion** (M key): Runs physics at half speed, helpful for observing collision timing, animation frames, and debugging tricky platforming sequences.
+- **Real-time runtime stats**: FPS, player position, score, health, gravity value, entity counts, and current level name.
+- **Cumulative playtest stats**: Tracks deaths, damage taken, leaves collected, boars killed, jumps, and session time. Stats are also logged to the browser console every 5 seconds while the debug screen is open.
+- **Event log feed**: Shows the most recent gameplay events (jumps, damage, kills, etc.) in real time.
+- **Bonus: Second level ("The Deep Woods")** that loads automatically when pressing N after completing Level 1. Features a different layout with new platform arrangements and a darker color palette while keeping the same canvas resolution, integer scaling, and control feel as Level 1.
 
 ## Setup and Interaction Instructions
 1. Open the GitHub Pages link in Google Chrome.
@@ -18,8 +22,12 @@ Fox Rescue is a pixel-art platformer where you play as a fox rescuing leaves sca
 3. **Arrow keys / WASD**: Move and jump.
 4. **Space**: Attack (melee, must be grounded).
 5. **R**: Restart (available on win/lose screens).
-6. **T**: Toggle debug overlay.
-7. Collect all 15 leaves to win. Avoid boars and fire — you have 3 hearts.
+6. **T**: Toggle debug screen.
+7. **G**: Toggle moon gravity (debug feature).
+8. **I**: Toggle invincibility (debug feature).
+9. **M**: Toggle slow motion (debug feature).
+10. **N**: Advance to next level (on win screen, when a next level exists).
+11. Collect enough leaves to win (15 in Level 1, 12 in Level 2). Avoid boars and fire — you have 3 hearts.
 
 ## Iteration Notes
 
@@ -27,6 +35,9 @@ Fox Rescue is a pixel-art platformer where you play as a fox rescuing leaves sca
 1. Added screen shake intensity decay so it feels impactful but not disorienting.
 2. Reduced fire hazard collider size (from 18x16 to 12x6) after testing showed the player could not jump over fires without taking damage, making the game too difficult to complete.
 3. Fixed boar-fire interaction so boars properly play their death animation and disappear instead of freezing in place when walking into fire.
+4. Refactored the level transition path so level 2 rebuilds through the same runtime setup structure as level 1, reusing the shared view/runtime setup helper and recreating fresh runtime systems after pressing N.
+5. Continued debugging the remaining level 2 control bug. Even after matching the level 2 starting geometry to level 1 and forcing the transition path to reuse the same runtime setup, the fox still would not jump or switch into its run animation in level 2.
+6. Simplified `transitionToLevel()` to delegate directly to `initRuntime()`, eliminating ~60 lines of duplicated setup logic. When the bug persisted, traced through `src/world/TileBuilder.js` and identified the root cause: stale p5play Group objects from level 1 persist with their `.tile` property after sprite removal, so `new Tiles()` spawns level 2 tiles into the old empty groups instead of the newly created ones. This leaves the new Level's solid groups empty, causing `isGrounded()` to always return false — preventing jumping and run animation. The fix is to call `group.remove()` on each old Level group during the transition cleanup phase before building new groups.
 
 ### Post-Showcase
 1. Add a win jingle sound effect for level completion.

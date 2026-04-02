@@ -34,8 +34,8 @@ export class WinScreen {
         "abcdefghijklmnopqrstuvwxyz{|}~";
   }
 
-  // Accepts extra fields (best/last) but won’t break if you don’t pass them yet.
-  draw({ elapsedMs, bestMs = null, lastWinMs = null, lastWinWasNewBest = false } = {}) {
+  // Accepts extra fields (best/last/hasNextLevel) but won’t break if you don’t pass them yet.
+  draw({ elapsedMs, bestMs = null, lastWinMs = null, lastWinWasNewBest = false, hasNextLevel = false } = {}) {
     const viewW = this.pkg.view?.viewW ?? this.pkg.view?.w ?? 240;
     const viewH = this.pkg.view?.viewH ?? this.pkg.view?.h ?? 192;
 
@@ -61,6 +61,7 @@ export class WinScreen {
       const newBestLine = lastWinWasNewBest ? "NEW BEST!" : "";
 
       const msg3 = "Press R to restart";
+      const msg4 = hasNextLevel ? "Press N for next level" : "";
 
       const x1 = Math.round((viewW - msg1.length * this.GLYPH_W) / 2);
       const x2 = Math.round((viewW - msg2.length * this.GLYPH_W) / 2);
@@ -70,7 +71,8 @@ export class WinScreen {
       const y2 = Math.round(viewH / 2 - 22);
       const yBest = Math.round(viewH / 2 + 0);
       const yNew = Math.round(viewH / 2 + 18);
-      const y3 = Math.round(viewH / 2 + 38);
+      const y3 = Math.round(viewH / 2 + 34);
+      const y4 = Math.round(viewH / 2 + 50);
 
       this._drawOutlined(window, msg1, x1, y1, "#00e5ff");
       this._drawOutlined(window, msg2, x2, y2, "#ffdc00");
@@ -86,6 +88,11 @@ export class WinScreen {
       }
 
       this._drawOutlined(window, msg3, x3, y3, "#ffffff");
+
+      if (msg4) {
+        const x4 = Math.round((viewW - msg4.length * this.GLYPH_W) / 2);
+        this._drawOutlined(window, msg4, x4, y4, "#00ff7a");
+      }
     } finally {
       camera.on();
       noTint();
